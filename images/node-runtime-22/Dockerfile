@@ -7,7 +7,7 @@
 #   * libc6-compat retained (sharp/next SWC still need it at runtime)
 #   * tini baked for clean SIGTERM → NODE_EXIT propagation
 #   * non-root `nextjs` user (uid 10001) — Next.js convention
-FROM node:22-alpine
+FROM node:25-alpine
 
 RUN apk update \
     && apk add --no-cache \
