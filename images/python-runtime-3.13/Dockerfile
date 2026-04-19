@@ -6,7 +6,7 @@
 # We stay on slim (not alpine) because most ML / data libraries ship
 # glibc wheels; alpine's musl forces source compiles that balloon
 # build time and break vendor support.
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
