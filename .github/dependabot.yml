@@ -1,0 +1,102 @@
+# Dependabot for tesserix/base-docker-images.
+#
+# Scans every Dockerfile's FROM line weekly and raises a PR when the
+# upstream image (node:22-alpine, alpine:3.23, etc.) publishes a newer
+# version. Keeps the base images themselves current between our own
+# weekly rebuild — if Node ships an off-cycle CVE fix on a Tuesday,
+# Dependabot raises the PR same day rather than waiting for Saturday.
+#
+# Merging a Dependabot PR here triggers the push-path of
+# weekly-rebuild.yml (since `paths: images/**` matches the bumped
+# Dockerfile), which rebuilds + publishes + notifies consumer repos.
+version: 2
+updates:
+  # Upstream base images that our company bases wrap.
+  - package-ecosystem: docker
+    directory: /images/go-builder
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: docker
+    directory: /images/alpine-runtime
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: docker
+    directory: /images/node-builder-22
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: docker
+    directory: /images/node-runtime-22
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: docker
+    directory: /images/node-builder-24
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: docker
+    directory: /images/node-runtime-24
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: docker
+    directory: /images/nginx-spa
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: docker
+    directory: /images/python-runtime-3.13
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: docker
+    directory: /images/debian-runtime
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: docker
+    directory: /images/distroless-static
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Actions pinning — catch breaking changes in the workflow itself.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "chore(ci)"
