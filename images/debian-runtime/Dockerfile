@@ -18,6 +18,8 @@ RUN apt-get update \
         ca-certificates \
         tini \
         tzdata \
+        wget \
+        curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/* \
     && groupadd --system --gid 10001 app \
@@ -30,5 +32,5 @@ ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["/bin/bash"]
 
 LABEL org.opencontainers.image.source="https://github.com/tesserix/base-docker-images" \
-      org.opencontainers.image.description="Tesserix Debian 13 (trixie) slim runtime — tini, ca-certs, tzdata, non-root 10001" \
+      org.opencontainers.image.description="Tesserix Debian 13 (trixie) slim runtime — tini, ca-certs, tzdata, wget, curl, non-root 10001" \
       org.opencontainers.image.licenses="MIT"

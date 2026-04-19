@@ -2,5 +2,21 @@
 #
 # Each entry must document why the CVE is not actionable (upstream only
 # patched in HEAD, pkg never reached at runtime, etc.) and a review
-# date. Empty by default — prefer actually fixing the vuln by bumping
-# the base, not ignoring it.
+# date. Prefer actually fixing the vuln by bumping the base, not
+# ignoring it.
+
+# ─────────────────────────────────────────────────────────────────────
+# CVE-2026-33671 — picomatch Regular Expression Denial of Service
+# (GHSA-qmt-xxm8-qqq4).
+#
+# Affects: every node:22-alpine / node:24-alpine upstream image — they
+# bundle corepack + npm which pull picomatch via a transitive that
+# declares "picomatch": "^4.0.3" in its package.json. Trivy's npm
+# scanner reads the LOWER BOUND of the SemVer range (4.0.3) and flags
+# it, even though npm actually resolves to 4.0.4 on disk.
+#
+# Review trigger: once node:NN-alpine ships a base image where every
+# transitive package.json declares ^4.0.4 or newer, drop this entry.
+# Last checked: 2026-04-20 (node:22-alpine v22.22.x, node:24-alpine
+# v24.15.x) — still carried upstream.
+CVE-2026-33671
