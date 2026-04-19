@@ -131,6 +131,43 @@ jobs:
           echo "| \`ghcr.io/tesserix/base-${{ matrix.image }}:latest\` | alias of weekly |" >> "$GITHUB_STEP_SUMMARY"
           echo "| \`ghcr.io/tesserix/base-${{ matrix.image }}:sha-${{ steps.meta.outputs.sha }}\` | git-anchored |" >> "$GITHUB_STEP_SUMMARY"
 
+  # Fires when the Trivy gate in any matrix leg came back red. The gate
+  # already fails that matrix leg on its own (exit-code: "1") and the
+  # image is NOT published — this job is the fan-out to the security
+  # distribution list so a red weekly run surfaces immediately rather
+  # than waiting for someone to notice the following Monday.
+  notify-security-failure:
+    name: Notify — base-image security gate failed
+    needs: [build-matrix]
+    if: ${{ always() && needs.build-matrix.result == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send email alert
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "[SECURITY] tesserix base-images — weekly rebuild failed"
+          from: "Tesserix Security <${{ secrets.SMTP_USERNAME }}>"
+          to: samyak.rout@gmail.com, mahesh.sangawar@gmail.com, unidevidp@gmail.com
+          body: |
+            The weekly base-image rebuild failed the Trivy CRITICAL+HIGH gate.
+            No image was published — downstream consumers keep serving the
+            previous weekly tag.
+
+            Workflow : ${{ github.workflow }}
+            Run      : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            Trigger  : ${{ github.event_name }}
+            Branch   : ${{ github.ref_name }}
+            Commit   : ${{ github.sha }}
+
+            Open the failing matrix leg in the run above for the CVE list.
+            Patch the base Dockerfile (or add a documented waiver to
+            .trivyignore) and re-run.
+
   # Optional: fan-out a rebuild event to downstream consumer repos so
   # their Dockerfiles re-pull the fresh base without waiting for a
   # manual push. Opt-in via the `consumers` list below.
