@@ -1,6 +1,6 @@
 # base-node-runtime-24 — Node 24 runtime stage. Mirror of
 # base-node-runtime-22 for Krypton-based apps.
-FROM node:24-alpine
+FROM node:25-alpine
 
 RUN apk update \
     && apk add --no-cache \
