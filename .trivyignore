@@ -1,0 +1,6 @@
+# Trivy ignore list for tesserix base images.
+#
+# Each entry must document why the CVE is not actionable (upstream only
+# patched in HEAD, pkg never reached at runtime, etc.) and a review
+# date. Empty by default — prefer actually fixing the vuln by bumping
+# the base, not ignoring it.
