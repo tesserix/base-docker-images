@@ -9,7 +9,7 @@
 #     `git rev-parse` calls to bake a build id
 #   * non-root build user baked at 10001 so `USER 10001:10001` works
 #     out of the box and npm doesn't complain about running as root
-FROM node:22-alpine
+FROM node:25-alpine
 
 RUN apk update \
     && apk add --no-cache \
