@@ -82,7 +82,7 @@ jobs:
       # Build BUT DON'T push yet — we want Trivy to gate the push so
       # nothing reaches the registry until it's scanned clean.
       - name: Build (load locally)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: images/${{ matrix.image }}
           file: images/${{ matrix.image }}/Dockerfile
@@ -106,7 +106,7 @@ jobs:
 
       - name: Push (post-scan)
         if: github.event_name != 'workflow_dispatch' || inputs.push == true
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: images/${{ matrix.image }}
           file: images/${{ matrix.image }}/Dockerfile
