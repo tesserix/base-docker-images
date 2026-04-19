@@ -1,7 +1,7 @@
 # base-node-builder-24 — Node 24 (Krypton LTS) build stage. Mirror of
 # base-node-builder-22; downstream consumers pick whichever LTS they
 # need. node:24-alpine tracks Krypton, the current active LTS.
-FROM node:24-alpine
+FROM node:25-alpine
 
 RUN apk update \
     && apk add --no-cache \
