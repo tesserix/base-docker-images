@@ -24,9 +24,14 @@ EXPOSE 8080
 
 # Tini as PID 1 so SIGTERM from K8s cleanly drains connections via the
 # built-in graceful-shutdown path (nginx needs SIGQUIT for graceful).
-# We translate in the shim.
+# We translate in the shim. The nginx image's /docker-entrypoint.sh
+# iterates /docker-entrypoint.d/*.sh — in particular
+# `20-envsubst-on-templates.sh` which renders consumer-provided
+# /etc/nginx/templates/*.template into /etc/nginx/conf.d/*. Without it,
+# portal Dockerfiles that ship a templated nginx.conf silently end up
+# serving the stock base config instead (port mismatch, no /health, etc.).
 STOPSIGNAL SIGQUIT
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["/sbin/tini", "--", "/docker-entrypoint.sh"]
 CMD ["nginx", "-g", "daemon off;"]
 
 LABEL org.opencontainers.image.source="https://github.com/tesserix/base-docker-images" \
