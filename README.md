@@ -63,24 +63,64 @@ waiting for Saturday.
 
 ## Consumer pattern
 
-The minimal consumer Dockerfile looks like:
+### Go services — distroless-static is the default
+
+`base-go-builder` sets `CGO_ENABLED=0`, so Go binaries come out fully
+static. That means **`base-distroless-static` is the right runtime base
+for every Go service** — it's smaller, has no shell, no package manager,
+and a smaller CVE surface than alpine.
 
 ```dockerfile
-# Build stage
+# Build stage — CGO_ENABLED=0 is baked in
 FROM ghcr.io/tesserix/base-go-builder:latest AS build
 WORKDIR /src
 COPY . .
-RUN go build -ldflags="-s -w" -o /out/app ./cmd/app
+RUN go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/app
 
-# Runtime
-FROM ghcr.io/tesserix/base-alpine-runtime:latest
-COPY --from=build /out/app /app
+# Runtime — distroless/static:nonroot, ca-certs + tzdata, uid 65532
+FROM ghcr.io/tesserix/base-distroless-static:latest
+COPY --from=build --chown=10001:10001 /out/app /app
 CMD ["/app"]
 ```
 
-No `apk add`, no `adduser`, no `USER` — all of that is baked. If the
-consumer needs extra packages (e.g. a CA bundle, a glibc-only lib), it
-adds them on top in its own stage.
+Notes:
+
+- Go's runtime handles `SIGTERM` directly via `signal.Notify`, so the
+  `tini` PID-1 wrapper isn't needed — Go binaries are safe as PID 1.
+- The image's `USER` is `nonroot` (uid 65532), but K8s
+  `securityContext.runAsUser` overrides it. Binaries from `go build`
+  are mode `0755`, so any uid can execute them — `--chown=10001:10001`
+  is for hygiene, not correctness.
+- Multi-binary services (server + migrate + seed) just stack more
+  `COPY --from=build` lines in the same runtime stage; one image, one
+  pull, K8s `command:` chooses which binary runs.
+- Reference migration: see the four mark8ly Go services in
+  `tesserix/mark8ly/services/{auth-bff,otto,platform-api,marketplace-api}/Dockerfile`.
+
+### When to use base-alpine-runtime instead
+
+Pick `base-alpine-runtime` only when you genuinely need a shell at
+runtime, e.g.:
+
+- The container forks/execs sub-processes (Bash entrypoints, init
+  scripts, multi-process supervisors).
+- The runtime has to call `apk add` for a glibc-only or musl-only lib
+  not already bundled in the binary.
+- The healthcheck is `wget` / `curl` rather than a TCP/HTTP probe
+  handled by K8s directly.
+
+In every other case, prefer distroless.
+
+### Other languages
+
+| Language | Runtime base |
+|---|---|
+| Go (static, default) | `base-distroless-static` |
+| Go (cgo / dynamic) | `base-debian-runtime` |
+| Node.js (Next.js standalone) | `base-node-runtime-22` or `base-node-runtime-24` |
+| Static SPAs (Vite/CRA) | `base-nginx-spa` |
+| Python (FastAPI / workers) | `base-python-runtime-3.13` |
+| Anything needing a shell | `base-alpine-runtime` |
 
 ## Adding a new image
 
