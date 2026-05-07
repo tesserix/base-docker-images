@@ -12,6 +12,7 @@ FROM golang:1.26-alpine
 # Force each weekly rebuild to pull the freshest apk index — without
 # --purge, the layer cache can silently hold month-old package sets.
 RUN apk update \
+    && apk upgrade --no-cache \
     && apk add --no-cache \
         git \
         ca-certificates \

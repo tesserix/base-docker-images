@@ -15,6 +15,7 @@
 FROM alpine:3.23
 
 RUN apk update \
+    && apk upgrade --no-cache \
     && apk add --no-cache \
         ca-certificates \
         tini \

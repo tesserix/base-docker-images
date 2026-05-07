@@ -18,6 +18,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # curl            → healthcheck probes without polluting app deps
 # tzdata          → zoneinfo for schedulers / timestamp reports
 RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
     && apt-get install --no-install-recommends -y \
         ca-certificates \
         tini \
