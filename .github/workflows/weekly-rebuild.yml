@@ -1,4 +1,6 @@
 name: Weekly base-image rebuild
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 # Rebuilds every tesserix base image every Saturday at 03:00 UTC, which
 # is after Alpine + Debian + the language distros have typically pushed
