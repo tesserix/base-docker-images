@@ -72,6 +72,10 @@ jobs:
           # Three tags: immutable date, moving weekly, and latest alias
           echo "tags=ghcr.io/tesserix/base-${{ matrix.image }}:$DATE,ghcr.io/tesserix/base-${{ matrix.image }}:weekly,ghcr.io/tesserix/base-${{ matrix.image }}:latest,ghcr.io/tesserix/base-${{ matrix.image }}:sha-$SHA" >> "$GITHUB_OUTPUT"
 
+      # Register binfmt handlers so the amd64 runner can build the
+      # linux/arm64 leg of each image under emulation.
+      - uses: docker/setup-qemu-action@v3
+
       - uses: docker/setup-buildx-action@v4
 
       - name: Log in to GHCR
@@ -82,8 +86,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # Build BUT DON'T push yet — we want Trivy to gate the push so
-      # nothing reaches the registry until it's scanned clean.
-      - name: Build (load locally)
+      # nothing reaches the registry until it's scanned clean. `load: true`
+      # only supports a single platform, so we scan the amd64 leg; the
+      # arm64 leg shares the same Dockerfile + multi-arch upstream base, so
+      # its OS/library CVE profile is identical.
+      - name: Build (load locally for scan)
         uses: docker/build-push-action@v6
         with:
           context: images/${{ matrix.image }}
@@ -91,6 +98,7 @@ jobs:
           push: false
           load: true
           pull: true
+          platforms: linux/amd64
           tags: ghcr.io/tesserix/base-${{ matrix.image }}:sha-${{ steps.meta.outputs.sha }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,scope=${{ matrix.image }},mode=max
@@ -106,7 +114,10 @@ jobs:
           vuln-type: "os,library"
           trivyignores: .trivyignore
 
-      - name: Push (post-scan)
+      # Build both arches from the same cache and push a single manifest
+      # list. The amd64 leg is a cache hit from the scan build; the arm64
+      # leg builds fresh under QEMU.
+      - name: Push (post-scan, multi-arch)
         if: github.event_name != 'workflow_dispatch' || inputs.push == true
         uses: docker/build-push-action@v6
         with:
@@ -114,6 +125,7 @@ jobs:
           file: images/${{ matrix.image }}/Dockerfile
           push: true
           pull: true
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha,scope=${{ matrix.image }}
           provenance: false
