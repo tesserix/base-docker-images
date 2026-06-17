@@ -4,10 +4,14 @@
 # pre-compressed file support, and a non-root (port 8080) listener so
 # the image can run under a K8s PodSecurityContext with
 # allowPrivilegeEscalation: false.
-FROM nginx:1.29-alpine
+# Pinned to the alpine3.23 variant (not the floating -alpine) so the build
+# layer key changes whenever we bump it — that busts the buildx gha cache and
+# forces `apk upgrade` to re-pull the current package index instead of replaying
+# a stale cached layer (which had served openssl 3.5.6-r0 after 3.5.7-r0 shipped).
+FROM nginx:1.29-alpine3.23
 
 RUN apk update \
-    && apk upgrade --no-cache \
+    && apk upgrade --no-cache --available \
     && apk add --no-cache \
         ca-certificates \
         tini \

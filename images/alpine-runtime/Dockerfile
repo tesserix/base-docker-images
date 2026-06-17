@@ -14,8 +14,12 @@
 #   * non-root user (uid 10001 gid 10001)
 FROM alpine:3.23
 
+# `--available` re-evaluates every package against the freshly-pulled index so
+# the upgrade can't be satisfied by a stale buildx-cached layer (which had kept
+# openssl 3.5.6-r0 after 3.5.7-r0 shipped). The flag change also re-keys the
+# layer, forcing a cache miss on the next rebuild.
 RUN apk update \
-    && apk upgrade --no-cache \
+    && apk upgrade --no-cache --available \
     && apk add --no-cache \
         ca-certificates \
         tini \
