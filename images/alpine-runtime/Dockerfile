@@ -12,7 +12,7 @@
 #   * tzdata          — every reporting / cron service in our fleet
 #                       needs IANA zones at runtime.
 #   * non-root user (uid 10001 gid 10001)
-FROM alpine:3.23
+FROM alpine:3.24
 
 # `--available` re-evaluates every package against the freshly-pulled index so
 # the upgrade can't be satisfied by a stale buildx-cached layer (which had kept
