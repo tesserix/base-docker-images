@@ -98,9 +98,16 @@ jobs:
           push: false
           load: true
           pull: true
+          # no-cache so this security rebuild ALWAYS re-runs `apk upgrade`
+          # against the current package index. A cached package layer silently
+          # replays stale (vulnerable) packages even after `--pull` — that's
+          # what let openssl 3.5.6-r0 survive in the image after 3.5.7-r0
+          # shipped. Freshness is the whole point of this pipeline, so we eat
+          # the rebuild cost. cache-to still primes the just-built fresh amd64
+          # layer for the multi-arch push step below (same run).
+          no-cache: true
           platforms: linux/amd64
           tags: ghcr.io/tesserix/base-${{ matrix.image }}:sha-${{ steps.meta.outputs.sha }}
-          cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,scope=${{ matrix.image }},mode=max
           provenance: false
 
