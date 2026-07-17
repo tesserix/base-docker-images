@@ -33,6 +33,10 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    ignore:
+      # Image is deliberately pinned to this Node major (name says so).
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "chore(deps)"
 
@@ -41,6 +45,10 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    ignore:
+      # Image is deliberately pinned to this Node major (name says so).
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "chore(deps)"
 
@@ -49,6 +57,10 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    ignore:
+      # Image is deliberately pinned to this Node major (name says so).
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "chore(deps)"
 
@@ -57,6 +69,10 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    ignore:
+      # Image is deliberately pinned to this Node major (name says so).
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "chore(deps)"
 
@@ -73,6 +89,10 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    ignore:
+      # Image is deliberately pinned to Python 3.13 (name says so).
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
     commit-message:
       prefix: "chore(deps)"
 
