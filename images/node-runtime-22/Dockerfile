@@ -16,6 +16,7 @@ RUN apk update \
         ca-certificates \
         tini \
         tzdata \
+    && npm install -g npm@11 corepack@latest \
     && addgroup -g 10001 -S nextjs \
     && adduser  -u 10001 -S nextjs -G nextjs \
     && rm -rf /var/cache/apk/*

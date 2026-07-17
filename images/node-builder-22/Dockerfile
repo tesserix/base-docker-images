@@ -19,6 +19,7 @@ RUN apk update \
         ca-certificates \
     && addgroup -g 10001 -S app \
     && adduser  -u 10001 -S app -G app \
+    && npm install -g npm@11 corepack@latest \
     && corepack enable \
     && rm -rf /var/cache/apk/*
 
