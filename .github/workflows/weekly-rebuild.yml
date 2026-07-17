@@ -91,7 +91,7 @@ jobs:
       # arm64 leg shares the same Dockerfile + multi-arch upstream base, so
       # its OS/library CVE profile is identical.
       - name: Build (load locally for scan)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: images/${{ matrix.image }}
           file: images/${{ matrix.image }}/Dockerfile
@@ -126,7 +126,7 @@ jobs:
       # leg builds fresh under QEMU.
       - name: Push (post-scan, multi-arch)
         if: github.event_name != 'workflow_dispatch' || inputs.push == true
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: images/${{ matrix.image }}
           file: images/${{ matrix.image }}/Dockerfile
