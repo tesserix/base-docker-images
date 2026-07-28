@@ -2,6 +2,9 @@
 # base-node-runtime-22 for Krypton-based apps.
 FROM node:24-alpine
 
+# brace-expansion step patches CVE-2026-14257 — see base-node-builder-22
+# for the full rationale. npm bundles 5.0.7 and no npm release ships
+# 5.0.8 yet, so the copy is the fix. Remove once npm bundles >= 5.0.8.
 RUN apk update \
     && apk upgrade --no-cache \
     && apk add --no-cache \
@@ -10,6 +13,10 @@ RUN apk update \
         tini \
         tzdata \
     && npm install -g npm@11 corepack@latest \
+    && npm install -g --prefix /tmp/be brace-expansion@5.0.8 \
+    && cp -R /tmp/be/lib/node_modules/brace-expansion/. \
+             /usr/local/lib/node_modules/npm/node_modules/brace-expansion/ \
+    && rm -rf /tmp/be \
     && addgroup -g 10001 -S nextjs \
     && adduser  -u 10001 -S nextjs -G nextjs \
     && rm -rf /var/cache/apk/*

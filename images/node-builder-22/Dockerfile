@@ -11,6 +11,13 @@
 #     out of the box and npm doesn't complain about running as root
 FROM node:22-alpine
 
+# The brace-expansion step patches CVE-2026-14257 (DoS via unbounded
+# expansion). npm bundles brace-expansion 5.0.7; both npm 11.18.0 and
+# 12.0.1 still ship 5.0.7, so upgrading npm does NOT clear the finding —
+# this is why the 2026-07-25 weekly rebuild failed its Trivy gate. npm
+# carries exactly one copy of the package and 5.0.7/5.0.8 have identical
+# file layouts, so dropping 5.0.8 over it is a safe in-place fix.
+# Remove this once npm bundles >= 5.0.8.
 RUN apk update \
     && apk upgrade --no-cache \
     && apk add --no-cache \
@@ -20,6 +27,10 @@ RUN apk update \
     && addgroup -g 10001 -S app \
     && adduser  -u 10001 -S app -G app \
     && npm install -g npm@11 corepack@latest \
+    && npm install -g --prefix /tmp/be brace-expansion@5.0.8 \
+    && cp -R /tmp/be/lib/node_modules/brace-expansion/. \
+             /usr/local/lib/node_modules/npm/node_modules/brace-expansion/ \
+    && rm -rf /tmp/be \
     && corepack enable \
     && rm -rf /var/cache/apk/*
 
