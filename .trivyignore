@@ -20,3 +20,19 @@
 # Last checked: 2026-04-20 (node:22-alpine v22.22.x, node:24-alpine
 # v24.15.x) — still carried upstream.
 CVE-2026-33671
+
+# ─────────────────────────────────────────────────────────────────────
+# GHSA-6v7p-g79w-8964 — msgpack out-of-bounds read on Unpacker reuse
+# CVE-2025-47273  — setuptools PackageIndex path traversal
+#
+# Affects: base-python-runtime-3.13 only. Both are pip's VENDORED
+# copies (pip/_vendor/vendor.txt in pip 26.2.1 pins msgpack==1.1.2 and
+# setuptools==70.3.0), not site-packages, so `pip install --upgrade`
+# cannot move them and no pip release ships the fixed versions yet.
+# Reachable only while pip itself talks to a hostile index; nothing in
+# a running service imports pip._vendor.
+#
+# Review trigger: a pip release vendoring msgpack >= 1.2.1 and
+# setuptools >= 78.1.1. Last checked: 2026-08-15 (pip 26.2.1).
+GHSA-6v7p-g79w-8964
+CVE-2025-47273

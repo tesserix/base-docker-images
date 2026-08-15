@@ -11,13 +11,11 @@
 #     out of the box and npm doesn't complain about running as root
 FROM node:22-alpine
 
-# The brace-expansion step patches CVE-2026-14257 (DoS via unbounded
-# expansion). npm bundles brace-expansion 5.0.7; both npm 11.18.0 and
-# 12.0.1 still ship 5.0.7, so upgrading npm does NOT clear the finding —
-# this is why the 2026-07-25 weekly rebuild failed its Trivy gate. npm
-# carries exactly one copy of the package and 5.0.7/5.0.8 have identical
-# file layouts, so dropping 5.0.8 over it is a safe in-place fix.
-# Remove this once npm bundles >= 5.0.8.
+# npm bundles brace-expansion 5.0.8 (CVE-2026-69152) and ip-address
+# 10.2.0 (CVE-2026-69192), and no npm release ships the fixed versions
+# yet, so upgrading npm does not clear the Trivy gate. npm keeps exactly
+# one copy of each, so dropping the patched release over it is safe.
+# Remove once npm bundles brace-expansion >= 5.0.9 and ip-address >= 10.3.1.
 RUN apk update \
     && apk upgrade --no-cache \
     && apk add --no-cache \
@@ -27,10 +25,14 @@ RUN apk update \
     && addgroup -g 10001 -S app \
     && adduser  -u 10001 -S app -G app \
     && npm install -g npm@11 corepack@latest \
-    && npm install -g --prefix /tmp/be brace-expansion@5.0.8 \
-    && cp -R /tmp/be/lib/node_modules/brace-expansion/. \
-             /usr/local/lib/node_modules/npm/node_modules/brace-expansion/ \
-    && rm -rf /tmp/be \
+    && npm install -g --prefix /tmp/patched \
+        brace-expansion@5.0.9 \
+        ip-address@10.3.1 \
+    && for p in brace-expansion ip-address; do \
+         cp -R /tmp/patched/lib/node_modules/$p/. \
+               /usr/local/lib/node_modules/npm/node_modules/$p/; \
+       done \
+    && rm -rf /tmp/patched \
     && corepack enable \
     && rm -rf /var/cache/apk/*
 
