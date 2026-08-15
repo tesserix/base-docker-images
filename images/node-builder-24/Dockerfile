@@ -3,9 +3,9 @@
 # need. node:24-alpine tracks Krypton, the current active LTS.
 FROM node:24-alpine
 
-# brace-expansion step patches CVE-2026-14257 — see base-node-builder-22
-# for the full rationale. npm bundles 5.0.7 and no npm release ships
-# 5.0.8 yet, so the copy is the fix. Remove once npm bundles >= 5.0.8.
+# brace-expansion (CVE-2026-69152) and ip-address (CVE-2026-69192) are
+# patched in place over npm's bundled copies — see base-node-builder-22
+# for the rationale. Remove once npm bundles the fixed versions.
 RUN apk update \
     && apk upgrade --no-cache \
     && apk add --no-cache \
@@ -15,10 +15,14 @@ RUN apk update \
     && addgroup -g 10001 -S app \
     && adduser  -u 10001 -S app -G app \
     && npm install -g npm@11 corepack@latest \
-    && npm install -g --prefix /tmp/be brace-expansion@5.0.8 \
-    && cp -R /tmp/be/lib/node_modules/brace-expansion/. \
-             /usr/local/lib/node_modules/npm/node_modules/brace-expansion/ \
-    && rm -rf /tmp/be \
+    && npm install -g --prefix /tmp/patched \
+        brace-expansion@5.0.9 \
+        ip-address@10.3.1 \
+    && for p in brace-expansion ip-address; do \
+         cp -R /tmp/patched/lib/node_modules/$p/. \
+               /usr/local/lib/node_modules/npm/node_modules/$p/; \
+       done \
+    && rm -rf /tmp/patched \
     && corepack enable \
     && rm -rf /var/cache/apk/*
 
