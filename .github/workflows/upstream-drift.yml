@@ -35,7 +35,7 @@ jobs:
       - name: Sync committed defaults
         run: python3 tools/resolve_base.py --sync --no-digest | tee "$RUNNER_TEMP/drift.md"
 
-      - uses: peter-evans/create-pull-request@v7
+      - uses: peter-evans/create-pull-request@v8
         with:
           branch: chore/upstream-base-drift
           delete-branch: true
