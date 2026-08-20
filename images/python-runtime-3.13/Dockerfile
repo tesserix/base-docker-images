@@ -6,7 +6,9 @@
 # We stay on slim (not alpine) because most ML / data libraries ship
 # glibc wheels; alpine's musl forces source compiles that balloon
 # build time and break vendor support.
-FROM python:3.13-slim
+# Overridden by tools/resolve_base.py in CI; this default is what a local build gets.
+ARG BASE_IMAGE=python:3.13.15-slim
+FROM ${BASE_IMAGE}
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

@@ -1,0 +1,5 @@
+{
+  "kind": "registry-tag",
+  "repo": "gcr.io/distroless/static",
+  "tag": "nonroot"
+}

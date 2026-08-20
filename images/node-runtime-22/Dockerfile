@@ -7,7 +7,9 @@
 #   * libc6-compat retained (sharp/next SWC still need it at runtime)
 #   * tini baked for clean SIGTERM → NODE_EXIT propagation
 #   * non-root `nextjs` user (uid 10001) — Next.js convention
-FROM node:22-alpine
+# Overridden by tools/resolve_base.py in CI; this default is what a local build gets.
+ARG BASE_IMAGE=node:22.23.2-alpine3.24
+FROM ${BASE_IMAGE}
 
 # brace-expansion (CVE-2026-69152) and ip-address (CVE-2026-69192) are
 # patched in place over npm's bundled copies — see base-node-builder-22

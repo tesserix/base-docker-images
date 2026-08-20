@@ -9,7 +9,9 @@
 # digest. Nothing is added on top — distroless/static already ships
 # ca-certificates, tzdata, /etc/passwd with a `nonroot` user (uid 65532),
 # and no shell.
-FROM gcr.io/distroless/static:nonroot
+# Overridden by tools/resolve_base.py in CI; this default is what a local build gets.
+ARG BASE_IMAGE=gcr.io/distroless/static:nonroot
+FROM ${BASE_IMAGE}
 
 # No RUN possible (no shell). Labels are the only mutation.
 LABEL org.opencontainers.image.source="https://github.com/tesserix/base-docker-images" \

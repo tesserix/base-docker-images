@@ -1,118 +1,13 @@
 # Dependabot for tesserix/base-docker-images.
 #
-# Scans every Dockerfile's FROM line weekly and raises a PR when the
-# upstream image (node:22-alpine, alpine:3.23, etc.) publishes a newer
-# version. Keeps the base images themselves current between our own
-# weekly rebuild — if Node ships an off-cycle CVE fix on a Tuesday,
-# Dependabot raises the PR same day rather than waiting for Saturday.
-#
-# Merging a Dependabot PR here triggers the push-path of
-# weekly-rebuild.yml (since `paths: images/**` matches the bumped
-# Dockerfile), which rebuilds + publishes + notifies consumer repos.
+# The image Dockerfiles are deliberately absent. Every base now builds
+# `FROM ${BASE_IMAGE}`, and Dependabot's Docker parser does not expand ARG in a
+# FROM line (dependabot-core#10190) — it would report the images as no longer
+# dependencies and close its own PRs. That job moved to upstream-drift.yml,
+# which resolves each image's tracked line from images/*/base-source.json and
+# raises the same daily bump PR.
 version: 2
 updates:
-  # Upstream base images that our company bases wrap.
-  - package-ecosystem: docker
-    directory: /images/go-builder
-    schedule:
-      interval: weekly
-      day: monday
-    commit-message:
-      prefix: "chore(deps)"
-
-  - package-ecosystem: docker
-    directory: /images/alpine-runtime
-    schedule:
-      interval: weekly
-      day: monday
-    commit-message:
-      prefix: "chore(deps)"
-
-  - package-ecosystem: docker
-    directory: /images/node-builder-22
-    schedule:
-      interval: weekly
-      day: monday
-    ignore:
-      # Image is deliberately pinned to this Node major (name says so).
-      - dependency-name: node
-        update-types: ["version-update:semver-major"]
-    commit-message:
-      prefix: "chore(deps)"
-
-  - package-ecosystem: docker
-    directory: /images/node-runtime-22
-    schedule:
-      interval: weekly
-      day: monday
-    ignore:
-      # Image is deliberately pinned to this Node major (name says so).
-      - dependency-name: node
-        update-types: ["version-update:semver-major"]
-    commit-message:
-      prefix: "chore(deps)"
-
-  - package-ecosystem: docker
-    directory: /images/node-builder-24
-    schedule:
-      interval: weekly
-      day: monday
-    ignore:
-      # Image is deliberately pinned to this Node major (name says so).
-      - dependency-name: node
-        update-types: ["version-update:semver-major"]
-    commit-message:
-      prefix: "chore(deps)"
-
-  - package-ecosystem: docker
-    directory: /images/node-runtime-24
-    schedule:
-      interval: weekly
-      day: monday
-    ignore:
-      # Image is deliberately pinned to this Node major (name says so).
-      - dependency-name: node
-        update-types: ["version-update:semver-major"]
-    commit-message:
-      prefix: "chore(deps)"
-
-  - package-ecosystem: docker
-    directory: /images/nginx-spa
-    schedule:
-      interval: weekly
-      day: monday
-    commit-message:
-      prefix: "chore(deps)"
-
-  - package-ecosystem: docker
-    directory: /images/python-runtime-3.13
-    schedule:
-      interval: weekly
-      day: monday
-    ignore:
-      # Image is deliberately pinned to Python 3.13 (name says so).
-      - dependency-name: python
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
-    commit-message:
-      prefix: "chore(deps)"
-
-  - package-ecosystem: docker
-    directory: /images/debian-runtime
-    schedule:
-      interval: weekly
-      day: monday
-    commit-message:
-      prefix: "chore(deps)"
-
-  - package-ecosystem: docker
-    directory: /images/distroless-static
-    schedule:
-      interval: weekly
-      day: monday
-    commit-message:
-      prefix: "chore(deps)"
-
-  # Actions pinning — catch breaking changes in the workflow itself.
   - package-ecosystem: github-actions
     directory: /
     schedule:

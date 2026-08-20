@@ -1,6 +1,8 @@
 # base-node-runtime-24 — Node 24 runtime stage. Mirror of
 # base-node-runtime-22 for Krypton-based apps.
-FROM node:24-alpine
+# Overridden by tools/resolve_base.py in CI; this default is what a local build gets.
+ARG BASE_IMAGE=node:24.19.0-alpine3.24
+FROM ${BASE_IMAGE}
 
 # brace-expansion (CVE-2026-69152) and ip-address (CVE-2026-69192) are
 # patched in place over npm's bundled copies — see base-node-builder-22

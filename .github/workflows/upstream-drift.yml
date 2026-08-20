@@ -1,0 +1,45 @@
+name: Upstream base drift
+
+# Replaces Dependabot's Docker scanning, which cannot see through
+# `FROM ${BASE_IMAGE}` (dependabot-core#10190). Daily, so an off-cycle upstream
+# CVE fix raises a PR the same day instead of waiting for Saturday; merging the
+# PR trips the `paths: images/**` filter on weekly-rebuild.yml and republishes.
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  drift:
+    name: Bump defaults to latest upstream
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - run: pip install pytest
+
+      # A resolver that cannot prove itself must not rewrite ten Dockerfiles.
+      - run: python -m pytest tools -q
+
+      # Digests are left off the committed default: it is a starting point for
+      # local builds, and the weekly job pins the digest at build time.
+      - name: Sync committed defaults
+        run: python3 tools/resolve_base.py --sync --no-digest | tee "$RUNNER_TEMP/drift.md"
+
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          branch: chore/upstream-base-drift
+          delete-branch: true
+          title: "chore(images): bump base image defaults to latest upstream"
+          commit-message: "chore(images): bump base image defaults to latest upstream"
+          body-path: ${{ runner.temp }}/drift.md
+          labels: dependencies
