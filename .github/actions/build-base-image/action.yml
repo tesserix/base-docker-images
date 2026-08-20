@@ -1,0 +1,135 @@
+name: Build, scan and publish a base image
+description: Resolves the image's upstream versions, builds, gates on Trivy, then pushes.
+
+inputs:
+  image:
+    description: Directory name under images/
+    required: true
+  push:
+    description: Push to GHCR after the scan passes
+    required: true
+  gh-token:
+    description: Token able to read releases on private tesserix repos
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Compute build metadata
+      id: meta
+      shell: bash
+      run: |
+        DATE=$(date -u +%Y%m%d)
+        SHA=$(git rev-parse --short=12 HEAD)
+        echo "date=$DATE" >> "$GITHUB_OUTPUT"
+        # Three tags: immutable date, moving weekly, and latest alias
+        echo "tags=ghcr.io/tesserix/base-${{ inputs.image }}:$DATE,ghcr.io/tesserix/base-${{ inputs.image }}:weekly,ghcr.io/tesserix/base-${{ inputs.image }}:latest,ghcr.io/tesserix/base-${{ inputs.image }}:sha-$SHA" >> "$GITHUB_OUTPUT"
+        echo "scan-tag=ghcr.io/tesserix/base-${{ inputs.image }}:sha-$SHA" >> "$GITHUB_OUTPUT"
+
+    # Register binfmt handlers so the amd64 runner can build the
+    # linux/arm64 leg of each image under emulation.
+    - uses: docker/setup-qemu-action@v4
+
+    - uses: docker/setup-buildx-action@v4
+
+    # Before resolution, because a derived image's base lives in this registry.
+    - name: Log in to GHCR
+      uses: docker/login-action@v4
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+
+    # Latest upstream release on this image's line, pinned by digest so the
+    # build is still reproducible once the upstream tag moves on.
+    - name: Resolve build arguments
+      id: args
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.gh-token }}
+      run: |
+        values=$(python3 tools/resolve_base.py --build-args "${{ inputs.image }}")
+        {
+          echo "values<<RESOLVED_EOF"
+          echo "$values"
+          echo "RESOLVED_EOF"
+        } >> "$GITHUB_OUTPUT"
+        echo "base=$(printf '%s\n' "$values" | sed -n 's/^BASE_IMAGE=//p')" >> "$GITHUB_OUTPUT"
+        echo "::notice::base-${{ inputs.image }} resolved:"
+        printf '%s\n' "$values"
+
+    # Build BUT DON'T push yet — we want Trivy to gate the push so
+    # nothing reaches the registry until it's scanned clean. `load: true`
+    # only supports a single platform, so we scan the amd64 leg; the
+    # arm64 leg shares the same Dockerfile + multi-arch upstream base, so
+    # its OS/library CVE profile is identical.
+    - name: Build (load locally for scan)
+      uses: docker/build-push-action@v7
+      with:
+        context: images/${{ inputs.image }}
+        file: images/${{ inputs.image }}/Dockerfile
+        push: false
+        load: true
+        pull: true
+        # no-cache so this security rebuild ALWAYS re-runs `apk upgrade`
+        # against the current package index. A cached package layer silently
+        # replays stale (vulnerable) packages even after `--pull` — that's
+        # what let openssl 3.5.6-r0 survive in the image after 3.5.7-r0
+        # shipped. Freshness is the whole point of this pipeline, so we eat
+        # the rebuild cost.
+        no-cache: true
+        build-args: ${{ steps.args.outputs.values }}
+        platforms: linux/amd64
+        tags: ${{ steps.meta.outputs.scan-tag }}
+        cache-to: type=gha,scope=${{ inputs.image }},mode=max
+        provenance: false
+
+    - name: Trivy scan (fail on CRITICAL + HIGH)
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ steps.meta.outputs.scan-tag }}
+        severity: CRITICAL,HIGH
+        exit-code: "1"
+        ignore-unfixed: true
+        vuln-type: "os,library"
+        trivyignores: .trivyignore
+
+    # Build both arches from the same cache and push a single manifest
+    # list. The amd64 leg is a cache hit from the scan build; the arm64
+    # leg builds fresh under QEMU.
+    - name: Push (post-scan, multi-arch)
+      if: inputs.push == 'true'
+      uses: docker/build-push-action@v7
+      with:
+        context: images/${{ inputs.image }}
+        file: images/${{ inputs.image }}/Dockerfile
+        push: true
+        pull: true
+        build-args: ${{ steps.args.outputs.values }}
+        platforms: linux/amd64,linux/arm64
+        tags: ${{ steps.meta.outputs.tags }}
+        cache-from: type=gha,scope=${{ inputs.image }}
+        provenance: false
+        labels: |
+          org.opencontainers.image.revision=${{ github.sha }}
+          org.opencontainers.image.created=${{ steps.meta.outputs.date }}
+          org.opencontainers.image.base.name=${{ steps.args.outputs.base }}
+
+    - name: Summary
+      if: always()
+      shell: bash
+      run: |
+        {
+          echo "### base-${{ inputs.image }}"
+          echo ""
+          echo "Resolved:"
+          echo '```'
+          printf '%s\n' "${{ steps.args.outputs.values }}"
+          echo '```'
+          echo ""
+          echo "| Tag | Status |"
+          echo "| --- | --- |"
+          echo "| \`ghcr.io/tesserix/base-${{ inputs.image }}:${{ steps.meta.outputs.date }}\` | immutable |"
+          echo "| \`ghcr.io/tesserix/base-${{ inputs.image }}:weekly\` | moving |"
+          echo "| \`ghcr.io/tesserix/base-${{ inputs.image }}:latest\` | alias of weekly |"
+        } >> "$GITHUB_STEP_SUMMARY"

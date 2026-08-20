@@ -38,8 +38,8 @@ reaches the registry.
 ## Lifecycle
 
 - **Every Saturday 03:00 UTC** — `weekly-rebuild.yml` runs. Each image
-  is built with `docker build --pull` so upstream alpine / debian /
-  node index refreshes are picked up.
+  resolves its latest upstream version (below) and is built with
+  `docker build --pull` so upstream index refreshes are picked up.
 - **Trivy gate** — CRITICAL + HIGH fail the build; nothing reaches the
   registry until it scans clean.
 - **Security alert** — a red weekly run emails
@@ -52,14 +52,76 @@ reaches the registry.
   successful weekly run. Each consumer ships its own
   `base-image-refresh.yml` that rebuilds on receipt.
 
-## Dependabot
+## Upstream version resolution
 
-`.github/dependabot.yml` scans every image's `FROM` line weekly. If
-Node, Alpine, Debian, Python, or nginx publishes an off-cycle CVE fix,
-Dependabot raises a PR same-day. Merging that PR triggers
-`weekly-rebuild.yml` via the `paths: images/**` filter, so the new
-upstream lands in `:weekly` + `:latest` within minutes instead of
-waiting for Saturday.
+No Dockerfile hard-codes the upstream version it builds on. Each image
+declares where its base comes from in `images/<name>/base-source.json`,
+and `tools/resolve_base.py` resolves the latest release on that line at
+build time:
+
+```bash
+python3 tools/resolve_base.py python-runtime-3.13
+# python:3.13.15-slim@sha256:…
+
+python3 tools/resolve_base.py --all --no-digest    # every image, no registry round-trip
+```
+
+The weekly job passes the result as `--build-arg BASE_IMAGE=…`, so an
+upstream patch or minor release is picked up without a commit. The
+resolved reference is pinned by digest and recorded on the built image
+as `org.opencontainers.image.base.name`, so a published image can always
+be traced back to the exact upstream layer it was built on.
+
+An image may declare extra build arguments alongside its base, each resolved
+from its own source. `python-adk-3.13` uses this to track the latest ADK
+release:
+
+```json
+{
+  "kind": "registry-tag",
+  "repo": "ghcr.io/tesserix/base-python-runtime-3.13",
+  "tag": "weekly",
+  "build_args": {
+    "ADK_VERSION": { "kind": "github-release", "repo": "tesserix/agent-development-kit" }
+  }
+}
+```
+
+**How far each image floats is set by its name.** Where the name states
+a version — `node-runtime-22`, `python-runtime-3.13` — the resolver stays
+inside that line and only advances the patch. Where it does not —
+`go-builder`, `alpine-runtime`, `nginx-spa` — it advances to the latest
+minor as well. Changing that promise means renaming the image, not
+loosening the pattern.
+
+The `ARG BASE_IMAGE=` default committed in each Dockerfile is the version
+that was latest when it was last touched. It exists so a local
+`docker build` is reproducible and so Dependabot still has a literal to
+bump; CI always overrides it.
+
+Resolution failing closed is deliberate: if a pattern stops matching,
+the build fails and the previous week's image keeps serving, rather than
+silently falling back to a stale base. `tools/test_resolve_base.py` runs
+as a gate before any image is built, and asserts that every image has a
+source, builds `FROM ${BASE_IMAGE}`, and carries a default that its own
+pattern still matches.
+
+## Off-cycle bumps
+
+`upstream-drift.yml` runs daily. It resolves every image, rewrites any
+`ARG BASE_IMAGE=` default that has fallen behind, and opens a single PR.
+Merging it triggers `weekly-rebuild.yml` via the `paths: images/**`
+filter, so an off-cycle CVE fix from Node, Alpine, Debian, Python or
+nginx lands in `:weekly` + `:latest` the same day instead of waiting for
+Saturday.
+
+This used to be Dependabot's job. Dependabot's Docker parser does not
+expand `ARG` in a `FROM` line ([dependabot-core#10190][dc10190]) — under
+`FROM ${BASE_IMAGE}` it reports the image as no longer a dependency and
+closes its own PRs. `.github/dependabot.yml` therefore keeps only the
+`github-actions` ecosystem.
+
+[dc10190]: https://github.com/dependabot/dependabot-core/issues/10190
 
 ## Consumer pattern
 
@@ -111,6 +173,42 @@ runtime, e.g.:
 
 In every other case, prefer distroless.
 
+### AI agents — always base-python-adk-3.13
+
+Agent services must not start `FROM python:*`, and must never hand-pin a
+`tesserix-adk` release URL. The base image already carries the ADK:
+
+```dockerfile
+FROM ghcr.io/tesserix/base-python-adk-3.13:20260822
+WORKDIR /app
+COPY pyproject.toml ./
+COPY src ./src
+# /opt/adk-venv is on PATH and writable by uid 10001; the ADK is already in it.
+RUN pip install --no-cache-dir .
+CMD ["uvicorn", "my_agent.main:app", "--host", "0.0.0.0", "--port", "8080"]
+```
+
+The installed version is readable at runtime as `TESSERIX_ADK_VERSION`, and
+recorded on the image as `org.opencontainers.image.base.name`.
+
+Because the ADK is private and not on PyPI, the wheel is downloaded from its
+release assets by `weekly-rebuild.yml` and checked with
+`gh attestation verify --signer-workflow` before the build starts. That check
+fails closed — a bundle signed by anything other than the ADK's own
+`release.yml` is rejected.
+
+Verification uses the provenance bundle attached to the release rather than the
+attestations API, because the API is a separate fine-grained PAT permission
+while the bundle needs only `contents:read`. Security is unchanged: the bundle
+carries a Sigstore signature bound to the release workflow's identity, so
+substituting it does not produce a passing verification. A local build of this image therefore needs the wheel fetched
+first:
+
+```bash
+gh release download v0.51.0 --repo tesserix/agent-development-kit \
+  --pattern '*.whl' --dir images/python-adk-3.13/wheels
+```
+
 ### Other languages
 
 | Language | Runtime base |
@@ -125,9 +223,12 @@ In every other case, prefer distroless.
 ## Adding a new image
 
 1. `mkdir images/<name>`
-2. Add a `Dockerfile` (and any companion config like `default.conf`).
-3. Add `<name>` to the matrix in `.github/workflows/weekly-rebuild.yml`.
-4. Add a `dependabot.yml` entry for the new directory.
+2. Add a `Dockerfile` with `ARG BASE_IMAGE=<pinned default>` and
+   `FROM ${BASE_IMAGE}` (plus any companion config like `default.conf`).
+3. Add `base-source.json` declaring the upstream repo and tag pattern.
+4. Add `<name>` to the matrix in `.github/workflows/weekly-rebuild.yml` —
+   `build-matrix` for an image built on an upstream base, `build-derived` for
+   one built on another tesserix base.
 5. Open a PR. CI builds, Trivy-scans, and publishes `sha-*` only. The
    moving tags switch over on the next Saturday rebuild (or manual
    `workflow_dispatch`).
@@ -159,5 +260,6 @@ Then add the consumer repo's slug to the `consumers` array in
 | Secret            | Used by                                              |
 |-------------------|------------------------------------------------------|
 | `TESSERIX_K8S_BOT`| PAT with `repo:write` on every consumer repo (for `repository_dispatch`) |
+| `ADK_READ_TOKEN`  | PAT with `contents:read` on `tesserix/agent-development-kit` (resolve, download and verify the ADK wheel) |
 | `SMTP_USERNAME`   | `notify-security-failure` job                        |
 | `SMTP_PASSWORD`   | `notify-security-failure` job (Gmail app password)   |

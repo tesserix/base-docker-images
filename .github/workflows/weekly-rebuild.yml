@@ -31,19 +31,36 @@ on:
     paths:
       - "images/**"
       - ".github/workflows/weekly-rebuild.yml"
+  # Validates the resolver on a PR without spending Actions minutes on eleven
+  # image builds; the build jobs below opt out of this trigger.
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
-  packages: write     # push to ghcr.io
-  id-token: write     # cosign keyless signing via OIDC
+  packages: write      # push to ghcr.io
+  id-token: write      # cosign keyless signing via OIDC
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false   # weekly runs should NOT cancel each other
 
 jobs:
+  resolver-tests:
+    name: Resolver unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: pip install pytest
+      - run: python -m pytest tools -q
+
   build-matrix:
     name: Build & scan ${{ matrix.image }}
+    needs: resolver-tests
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -61,96 +78,58 @@ jobs:
           - distroless-static
     steps:
       - uses: actions/checkout@v7
+      - uses: ./.github/actions/build-base-image
+        with:
+          image: ${{ matrix.image }}
+          push: ${{ github.event_name != 'workflow_dispatch' || inputs.push }}
+          gh-token: ${{ secrets.ADK_READ_TOKEN }}
 
-      - name: Compute build metadata
-        id: meta
+  # Images built on top of our own bases, so they must run after the job that
+  # publishes those bases — otherwise they would inherit last week's runtime.
+  build-derived:
+    name: Build & scan ${{ matrix.image }}
+    needs: build-matrix
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - python-adk-3.13
+    steps:
+      - uses: actions/checkout@v7
+
+      # The ADK is private and not on PyPI, so the wheel comes from its release
+      # assets. Verification fails closed and happens before the build: an
+      # unattested wheel is the one thing this base must never hand an agent.
+      - name: Fetch and verify the latest ADK wheel
+        if: matrix.image == 'python-adk-3.13'
+        env:
+          GH_TOKEN: ${{ secrets.ADK_READ_TOKEN }}
+          ADK_REPO: tesserix/agent-development-kit
         run: |
-          DATE=$(date -u +%Y%m%d)
-          SHA=$(git rev-parse --short=12 HEAD)
-          echo "date=$DATE" >> "$GITHUB_OUTPUT"
-          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-          # Three tags: immutable date, moving weekly, and latest alias
-          echo "tags=ghcr.io/tesserix/base-${{ matrix.image }}:$DATE,ghcr.io/tesserix/base-${{ matrix.image }}:weekly,ghcr.io/tesserix/base-${{ matrix.image }}:latest,ghcr.io/tesserix/base-${{ matrix.image }}:sha-$SHA" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          tag=$(python3 tools/resolve_base.py --build-args "${{ matrix.image }}" --no-digest \
+                  | sed -n 's/^ADK_VERSION=//p')
+          dest="images/${{ matrix.image }}/wheels"
+          gh release download "$tag" --repo "$ADK_REPO" --pattern '*.whl' --dir "$dest" --clobber
+          wheel=$(ls "$dest"/*.whl)
+          digest=$(sha256sum "$wheel" | cut -d' ' -f1)
+          # Verified against the bundle attached to the release, not the
+          # attestations API, which needs a separate PAT permission. The bundle
+          # is signed by the ADK's release workflow identity, so an attacker
+          # swapping it in still cannot forge a passing signature.
+          gh release download "$tag" --repo "$ADK_REPO" \
+            --pattern "sha256.$digest.jsonl" --dir "$RUNNER_TEMP" --clobber
+          gh attestation verify "$wheel" --bundle "$RUNNER_TEMP/sha256.$digest.jsonl" \
+            --repo "$ADK_REPO" \
+            --signer-workflow "$ADK_REPO/.github/workflows/release.yml"
 
-      # Register binfmt handlers so the amd64 runner can build the
-      # linux/arm64 leg of each image under emulation.
-      - uses: docker/setup-qemu-action@v4
-
-      - uses: docker/setup-buildx-action@v4
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
+      - uses: ./.github/actions/build-base-image
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      # Build BUT DON'T push yet — we want Trivy to gate the push so
-      # nothing reaches the registry until it's scanned clean. `load: true`
-      # only supports a single platform, so we scan the amd64 leg; the
-      # arm64 leg shares the same Dockerfile + multi-arch upstream base, so
-      # its OS/library CVE profile is identical.
-      - name: Build (load locally for scan)
-        uses: docker/build-push-action@v7
-        with:
-          context: images/${{ matrix.image }}
-          file: images/${{ matrix.image }}/Dockerfile
-          push: false
-          load: true
-          pull: true
-          # no-cache so this security rebuild ALWAYS re-runs `apk upgrade`
-          # against the current package index. A cached package layer silently
-          # replays stale (vulnerable) packages even after `--pull` — that's
-          # what let openssl 3.5.6-r0 survive in the image after 3.5.7-r0
-          # shipped. Freshness is the whole point of this pipeline, so we eat
-          # the rebuild cost. cache-to still primes the just-built fresh amd64
-          # layer for the multi-arch push step below (same run).
-          no-cache: true
-          platforms: linux/amd64
-          tags: ghcr.io/tesserix/base-${{ matrix.image }}:sha-${{ steps.meta.outputs.sha }}
-          cache-to: type=gha,scope=${{ matrix.image }},mode=max
-          provenance: false
-
-      - name: Trivy scan (fail on CRITICAL + HIGH)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ghcr.io/tesserix/base-${{ matrix.image }}:sha-${{ steps.meta.outputs.sha }}
-          severity: CRITICAL,HIGH
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: "os,library"
-          trivyignores: .trivyignore
-
-      # Build both arches from the same cache and push a single manifest
-      # list. The amd64 leg is a cache hit from the scan build; the arm64
-      # leg builds fresh under QEMU.
-      - name: Push (post-scan, multi-arch)
-        if: github.event_name != 'workflow_dispatch' || inputs.push == true
-        uses: docker/build-push-action@v7
-        with:
-          context: images/${{ matrix.image }}
-          file: images/${{ matrix.image }}/Dockerfile
-          push: true
-          pull: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha,scope=${{ matrix.image }}
-          provenance: false
-          labels: |
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.created=${{ steps.meta.outputs.date }}
-
-      - name: Summary
-        if: always()
-        run: |
-          echo "### base-${{ matrix.image }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Tag | Status |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| \`ghcr.io/tesserix/base-${{ matrix.image }}:${{ steps.meta.outputs.date }}\` | immutable |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| \`ghcr.io/tesserix/base-${{ matrix.image }}:weekly\` | moving |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| \`ghcr.io/tesserix/base-${{ matrix.image }}:latest\` | alias of weekly |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| \`ghcr.io/tesserix/base-${{ matrix.image }}:sha-${{ steps.meta.outputs.sha }}\` | git-anchored |" >> "$GITHUB_STEP_SUMMARY"
+          image: ${{ matrix.image }}
+          push: ${{ github.event_name != 'workflow_dispatch' || inputs.push }}
+          gh-token: ${{ secrets.ADK_READ_TOKEN }}
 
   # Fires when the Trivy gate in any matrix leg came back red. The gate
   # already fails that matrix leg on its own (exit-code: "1") and the
@@ -159,8 +138,8 @@ jobs:
   # than waiting for someone to notice the following Monday.
   notify-security-failure:
     name: Notify — base-image security gate failed
-    needs: [build-matrix]
-    if: ${{ always() && needs.build-matrix.result == 'failure' }}
+    needs: [resolver-tests, build-matrix, build-derived]
+    if: ${{ always() && (needs.resolver-tests.result == 'failure' || needs.build-matrix.result == 'failure' || needs.build-derived.result == 'failure') }}
     runs-on: ubuntu-latest
     steps:
       - name: Send email alert
@@ -175,9 +154,9 @@ jobs:
           from: "Tesserix Security <${{ secrets.SMTP_USERNAME }}>"
           to: samyak.rout@gmail.com, mahesh.sangawar@gmail.com, unidevidp@gmail.com
           body: |
-            The weekly base-image rebuild failed the Trivy CRITICAL+HIGH gate.
-            No image was published — downstream consumers keep serving the
-            previous weekly tag.
+            The weekly base-image rebuild failed a gate — either the upstream
+            version resolver or Trivy CRITICAL+HIGH. No image was published;
+            downstream consumers keep serving the previous weekly tag.
 
             Workflow : ${{ github.workflow }}
             Run      : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -185,16 +164,17 @@ jobs:
             Branch   : ${{ github.ref_name }}
             Commit   : ${{ github.sha }}
 
-            Open the failing matrix leg in the run above for the CVE list.
-            Patch the base Dockerfile (or add a documented waiver to
-            .trivyignore) and re-run.
+            Open the failing job in the run above. For a Trivy failure, patch
+            the base Dockerfile or add a documented waiver to .trivyignore. For
+            a resolver failure, the upstream tag pattern in
+            images/<image>/base-source.json no longer matches anything.
 
   # Optional: fan-out a rebuild event to downstream consumer repos so
   # their Dockerfiles re-pull the fresh base without waiting for a
   # manual push. Opt-in via the `consumers` list below.
   notify-consumers:
     name: Notify consumer repos to rebuild
-    needs: [build-matrix]
+    needs: [build-matrix, build-derived]
     if: github.event_name == 'schedule' && success()
     runs-on: ubuntu-latest
     steps:

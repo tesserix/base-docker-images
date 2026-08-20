@@ -1,0 +1,6 @@
+{
+  "kind": "docker-hub",
+  "repo": "library/node",
+  "name_filter": "24.",
+  "pattern": "^24\\.\\d+\\.\\d+-alpine3\\.\\d+$"
+}

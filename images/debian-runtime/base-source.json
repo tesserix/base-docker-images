@@ -1,0 +1,6 @@
+{
+  "kind": "docker-hub",
+  "repo": "library/debian",
+  "name_filter": "trixie-",
+  "pattern": "^trixie-\\d{8}-slim$"
+}

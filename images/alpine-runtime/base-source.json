@@ -1,0 +1,6 @@
+{
+  "kind": "docker-hub",
+  "repo": "library/alpine",
+  "name_filter": "3.",
+  "pattern": "^3\\.\\d+\\.\\d+$"
+}

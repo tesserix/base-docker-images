@@ -9,7 +9,9 @@
 #     `git rev-parse` calls to bake a build id
 #   * non-root build user baked at 10001 so `USER 10001:10001` works
 #     out of the box and npm doesn't complain about running as root
-FROM node:22-alpine
+# Overridden by tools/resolve_base.py in CI; this default is what a local build gets.
+ARG BASE_IMAGE=node:22.23.2-alpine3.24
+FROM ${BASE_IMAGE}
 
 # npm bundles brace-expansion 5.0.8 (CVE-2026-69152) and ip-address
 # 10.2.0 (CVE-2026-69192), and no npm release ships the fixed versions

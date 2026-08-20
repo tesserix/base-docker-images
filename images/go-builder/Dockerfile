@@ -7,7 +7,9 @@
 #
 # Non-root user is baked at 10001 so consumers can `USER 10001:10001` in
 # their own Dockerfile without adding duplicate adduser commands.
-FROM golang:1.26-alpine
+# Overridden by tools/resolve_base.py in CI; this default is what a local build gets.
+ARG BASE_IMAGE=golang:1.27.0-alpine3.24
+FROM ${BASE_IMAGE}
 
 # Force each weekly rebuild to pull the freshest apk index — without
 # --purge, the layer cache can silently hold month-old package sets.

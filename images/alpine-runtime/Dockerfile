@@ -12,7 +12,9 @@
 #   * tzdata          — every reporting / cron service in our fleet
 #                       needs IANA zones at runtime.
 #   * non-root user (uid 10001 gid 10001)
-FROM alpine:3.24
+# Overridden by tools/resolve_base.py in CI; this default is what a local build gets.
+ARG BASE_IMAGE=alpine:3.24.1
+FROM ${BASE_IMAGE}
 
 # `--available` re-evaluates every package against the freshly-pulled index so
 # the upgrade can't be satisfied by a stale buildx-cached layer (which had kept

@@ -1,0 +1,4 @@
+# Fetched and provenance-verified by weekly-rebuild.yml; never committed.
+images/*/wheels/*.whl
+__pycache__/
+.pytest_cache/

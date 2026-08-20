@@ -9,7 +9,9 @@
 #   * vendor SDKs only publish glibc wheels (e.g. Stripe Go SDK does
 #     link net/http → glibc via cgo when CGO_ENABLED=1)
 #   * you need apt packages for op-time tools
-FROM debian:trixie-slim
+# Overridden by tools/resolve_base.py in CI; this default is what a local build gets.
+ARG BASE_IMAGE=debian:trixie-20260803-slim
+FROM ${BASE_IMAGE}
 
 ENV DEBIAN_FRONTEND=noninteractive
 
