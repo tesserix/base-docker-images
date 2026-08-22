@@ -47,8 +47,8 @@ reaches the registry.
   `unidevidp@gmail.com` via Gmail SMTP (`SMTP_USERNAME` and
   `SMTP_PASSWORD` repo secrets required).
 - **Downstream notify** — opt-in consumer repos (FanZone, mark8ly,
-  HomeChef) get a
-  `repository_dispatch: tesserix-base-images-updated` after a
+  HomeChef, Helivanta) get a
+  `repository_dispatch: base-image-refresh` after a
   successful weekly run. Each consumer ships its own
   `base-image-refresh.yml` that rebuilds on receipt.
 
@@ -242,7 +242,7 @@ In the consumer repo, add:
 name: Base Image Refresh
 on:
   repository_dispatch:
-    types: [tesserix-base-images-updated]
+    types: [base-image-refresh]
   workflow_dispatch:
 jobs:
   rebuild:
