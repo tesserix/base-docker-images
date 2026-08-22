@@ -5,9 +5,9 @@
 ARG BASE_IMAGE=node:24.19.0-alpine3.24
 FROM ${BASE_IMAGE}
 
-# brace-expansion (CVE-2026-69152) and ip-address (CVE-2026-69192) are
-# patched in place over npm's bundled copies — see base-node-builder-22
-# for the rationale. Remove once npm bundles the fixed versions.
+# Vulnerable brace-expansion, ip-address, and tar releases are patched in
+# place over npm's bundled copies — see base-node-builder-22 for the
+# rationale and removal versions.
 RUN apk update \
     && apk upgrade --no-cache \
     && apk add --no-cache \
@@ -20,7 +20,8 @@ RUN apk update \
     && npm install -g --prefix /tmp/patched \
         brace-expansion@5.0.9 \
         ip-address@10.3.1 \
-    && for p in brace-expansion ip-address; do \
+        tar@7.5.21 \
+    && for p in brace-expansion ip-address tar; do \
          cp -R /tmp/patched/lib/node_modules/$p/. \
                /usr/local/lib/node_modules/npm/node_modules/$p/; \
        done \

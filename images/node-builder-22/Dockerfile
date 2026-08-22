@@ -13,11 +13,12 @@
 ARG BASE_IMAGE=node:22.23.2-alpine3.24
 FROM ${BASE_IMAGE}
 
-# npm bundles brace-expansion 5.0.8 (CVE-2026-69152) and ip-address
-# 10.2.0 (CVE-2026-69192), and no npm release ships the fixed versions
-# yet, so upgrading npm does not clear the Trivy gate. npm keeps exactly
-# one copy of each, so dropping the patched release over it is safe.
-# Remove once npm bundles brace-expansion >= 5.0.9 and ip-address >= 10.3.1.
+# npm bundles brace-expansion 5.0.8 (CVE-2026-69152), ip-address 10.2.0
+# (CVE-2026-69192), and tar 7.5.19 (CVE-2026-73566). No npm release ships
+# all fixed versions yet, so upgrading npm does not clear the Trivy gate.
+# npm keeps exactly one copy of each, so replacing it in place is safe.
+# Remove once npm bundles brace-expansion >= 5.0.9, ip-address >= 10.3.1,
+# and tar >= 7.5.21.
 RUN apk update \
     && apk upgrade --no-cache \
     && apk add --no-cache \
@@ -30,7 +31,8 @@ RUN apk update \
     && npm install -g --prefix /tmp/patched \
         brace-expansion@5.0.9 \
         ip-address@10.3.1 \
-    && for p in brace-expansion ip-address; do \
+        tar@7.5.21 \
+    && for p in brace-expansion ip-address tar; do \
          cp -R /tmp/patched/lib/node_modules/$p/. \
                /usr/local/lib/node_modules/npm/node_modules/$p/; \
        done \

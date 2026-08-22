@@ -190,6 +190,7 @@ jobs:
             "tesserix/FanZone-Battle-Ground"
             "tesserix/mark8ly"
             "tesserix/Home-Chef-App"
+            "tesserix/helivanta"
           )
           for repo in "${consumers[@]}"; do
             echo "::notice::dispatching base-image-refresh to $repo"
