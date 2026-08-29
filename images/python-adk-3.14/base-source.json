@@ -1,0 +1,11 @@
+{
+  "kind": "registry-tag",
+  "repo": "ghcr.io/tesserix/base-python-runtime-3.14",
+  "tag": "weekly",
+  "build_args": {
+    "ADK_VERSION": {
+      "kind": "github-release",
+      "repo": "tesserix/agent-development-kit"
+    }
+  }
+}
