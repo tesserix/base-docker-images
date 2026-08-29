@@ -74,6 +74,7 @@ jobs:
           - node-runtime-24
           - nginx-spa
           - python-runtime-3.13
+          - python-runtime-3.14
           - debian-runtime
           - distroless-static
     steps:
@@ -96,6 +97,7 @@ jobs:
       matrix:
         image:
           - python-adk-3.13
+          - python-adk-3.14
     steps:
       - uses: actions/checkout@v7
 
@@ -103,7 +105,7 @@ jobs:
       # assets. Verification fails closed and happens before the build: an
       # unattested wheel is the one thing this base must never hand an agent.
       - name: Fetch and verify the latest ADK wheel
-        if: matrix.image == 'python-adk-3.13'
+        if: startsWith(matrix.image, 'python-adk-')
         env:
           GH_TOKEN: ${{ secrets.ADK_READ_TOKEN }}
           ADK_REPO: tesserix/agent-development-kit

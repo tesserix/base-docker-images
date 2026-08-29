@@ -1,0 +1,6 @@
+{
+  "kind": "docker-hub",
+  "repo": "library/python",
+  "name_filter": "3.14.",
+  "pattern": "^3\\.14\\.\\d+-slim$"
+}

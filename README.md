@@ -23,6 +23,9 @@ reaches the registry.
 | `ghcr.io/tesserix/base-node-runtime-24`     | `node:24-alpine`                     | Next.js standalone runtime for Node 24                                  |
 | `ghcr.io/tesserix/base-nginx-spa`           | `nginx:1.29-alpine`                  | Static SPA serve — SPA fallback, brotli/gzip, non-root :8080            |
 | `ghcr.io/tesserix/base-python-runtime-3.13` | `python:3.13-slim`                   | Python runtime for FastAPI / worker services — tini, curl, ca-certs     |
+| `ghcr.io/tesserix/base-python-runtime-3.14` | `python:3.14-slim`                   | Same on 3.14 — the line new Python services should start from           |
+| `ghcr.io/tesserix/base-python-adk-3.13`     | `base-python-runtime-3.13`           | Agent runtime with `tesserix-adk[all]` pre-installed in `/opt/adk-venv` |
+| `ghcr.io/tesserix/base-python-adk-3.14`     | `base-python-runtime-3.14`           | Same on 3.14 — matches the Python the ADK itself releases on            |
 | `ghcr.io/tesserix/base-debian-runtime`      | `debian:trixie-slim`                 | Glibc-linked runtime when musl is not an option                         |
 | `ghcr.io/tesserix/base-distroless-static`   | `gcr.io/distroless/static:nonroot`   | Pass-through for Go static binaries — zero shell, uid 65532             |
 
@@ -173,13 +176,15 @@ runtime, e.g.:
 
 In every other case, prefer distroless.
 
-### AI agents — always base-python-adk-3.13
+### AI agents — always a base-python-adk image
 
 Agent services must not start `FROM python:*`, and must never hand-pin a
-`tesserix-adk` release URL. The base image already carries the ADK:
+`tesserix-adk` release URL. The base image already carries the ADK. New
+services take the 3.14 line, which matches the Python the ADK develops and
+releases on; `base-python-adk-3.13` stays for services that have not moved:
 
 ```dockerfile
-FROM ghcr.io/tesserix/base-python-adk-3.13:20260822
+FROM ghcr.io/tesserix/base-python-adk-3.14:20260829
 WORKDIR /app
 COPY pyproject.toml ./
 COPY src ./src
@@ -205,8 +210,8 @@ substituting it does not produce a passing verification. A local build of this i
 first:
 
 ```bash
-gh release download v0.51.0 --repo tesserix/agent-development-kit \
-  --pattern '*.whl' --dir images/python-adk-3.13/wheels
+gh release download v0.53.1 --repo tesserix/agent-development-kit \
+  --pattern '*.whl' --dir images/python-adk-3.14/wheels
 ```
 
 ### Other languages
@@ -217,7 +222,8 @@ gh release download v0.51.0 --repo tesserix/agent-development-kit \
 | Go (cgo / dynamic) | `base-debian-runtime` |
 | Node.js (Next.js standalone) | `base-node-runtime-22` or `base-node-runtime-24` |
 | Static SPAs (Vite/CRA) | `base-nginx-spa` |
-| Python (FastAPI / workers) | `base-python-runtime-3.13` |
+| Python (FastAPI / workers) | `base-python-runtime-3.14` (`-3.13` for services not yet moved) |
+| Python (AI agents) | `base-python-adk-3.14` |
 | Anything needing a shell | `base-alpine-runtime` |
 
 ## Adding a new image
