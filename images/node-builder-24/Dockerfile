@@ -2,7 +2,7 @@
 # base-node-builder-22; downstream consumers pick whichever LTS they
 # need. node:24-alpine tracks Krypton, the current active LTS.
 # Overridden by tools/resolve_base.py in CI; this default is what a local build gets.
-ARG BASE_IMAGE=node:24.19.0-alpine3.24
+ARG BASE_IMAGE=node:24.20.0-alpine3.24
 FROM ${BASE_IMAGE}
 
 # Vulnerable brace-expansion, ip-address, and tar releases are patched in
