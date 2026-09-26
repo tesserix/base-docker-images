@@ -83,7 +83,7 @@ jobs:
         with:
           image: ${{ matrix.image }}
           push: ${{ github.event_name != 'workflow_dispatch' || inputs.push }}
-          gh-token: ${{ secrets.ADK_READ_TOKEN }}
+          gh-token: ${{ github.token }}
 
   # Images built on top of our own bases, so they must run after the job that
   # publishes those bases — otherwise they would inherit last week's runtime.
@@ -101,13 +101,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # The ADK is private and not on PyPI, so the wheel comes from its release
-      # assets. Verification fails closed and happens before the build: an
+      # The public ADK wheel comes from its release assets, using the short-lived
+      # workflow token. Verification fails closed before the build: an
       # unattested wheel is the one thing this base must never hand an agent.
       - name: Fetch and verify the latest ADK wheel
         if: startsWith(matrix.image, 'python-adk-')
         env:
-          GH_TOKEN: ${{ secrets.ADK_READ_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           ADK_REPO: tesserix/agent-development-kit
         run: |
           set -euo pipefail
@@ -131,7 +131,7 @@ jobs:
         with:
           image: ${{ matrix.image }}
           push: ${{ github.event_name != 'workflow_dispatch' || inputs.push }}
-          gh-token: ${{ secrets.ADK_READ_TOKEN }}
+          gh-token: ${{ github.token }}
 
   # Fires when the Trivy gate in any matrix leg came back red. The gate
   # already fails that matrix leg on its own (exit-code: "1") and the
