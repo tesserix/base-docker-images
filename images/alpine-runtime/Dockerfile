@@ -13,7 +13,7 @@
 #                       needs IANA zones at runtime.
 #   * non-root user (uid 10001 gid 10001)
 # Overridden by tools/resolve_base.py in CI; this default is what a local build gets.
-ARG BASE_IMAGE=alpine:3.24.1
+ARG BASE_IMAGE=alpine:3.24.2
 FROM ${BASE_IMAGE}
 
 # `--available` re-evaluates every package against the freshly-pulled index so

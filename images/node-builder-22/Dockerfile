@@ -10,7 +10,7 @@
 #   * non-root build user baked at 10001 so `USER 10001:10001` works
 #     out of the box and npm doesn't complain about running as root
 # Overridden by tools/resolve_base.py in CI; this default is what a local build gets.
-ARG BASE_IMAGE=node:22.23.2-alpine3.24
+ARG BASE_IMAGE=node:22.23.3-alpine3.24
 FROM ${BASE_IMAGE}
 
 # npm bundles brace-expansion 5.0.8 (CVE-2026-69152), ip-address 10.2.0

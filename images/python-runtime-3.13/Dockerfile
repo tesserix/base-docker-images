@@ -7,7 +7,7 @@
 # glibc wheels; alpine's musl forces source compiles that balloon
 # build time and break vendor support.
 # Overridden by tools/resolve_base.py in CI; this default is what a local build gets.
-ARG BASE_IMAGE=python:3.13.15-slim
+ARG BASE_IMAGE=python:3.13.16-slim
 FROM ${BASE_IMAGE}
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
