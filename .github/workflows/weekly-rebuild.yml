@@ -57,26 +57,30 @@ jobs:
       - run: pip install pytest
       - run: python -m pytest tools -q
 
+  select-images:
+    needs: resolver-tests
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      base: ${{ steps.scope.outputs.base }}
+      derived: ${{ steps.scope.outputs.derived }}
+      has_derived: ${{ steps.scope.outputs.has_derived }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: scope
+        env:
+          REQUESTED_IMAGES: ${{ github.event_name != 'workflow_dispatch' && 'all' || inputs.images }}
+        run: python3 tools/select_images.py "$REQUESTED_IMAGES" >> "$GITHUB_OUTPUT"
+
   build-matrix:
     name: Build & scan ${{ matrix.image }}
-    needs: resolver-tests
+    needs: select-images
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        image:
-          - go-builder
-          - alpine-runtime
-          - node-builder-22
-          - node-runtime-22
-          - node-builder-24
-          - node-runtime-24
-          - nginx-spa
-          - python-runtime-3.13
-          - python-runtime-3.14
-          - debian-runtime
-          - distroless-static
+        image: ${{ fromJSON(needs.select-images.outputs.base) }}
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/build-base-image
@@ -89,15 +93,13 @@ jobs:
   # publishes those bases — otherwise they would inherit last week's runtime.
   build-derived:
     name: Build & scan ${{ matrix.image }}
-    needs: build-matrix
-    if: github.event_name != 'pull_request'
+    needs: [select-images, build-matrix]
+    if: needs.select-images.outputs.has_derived == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        image:
-          - python-adk-3.13
-          - python-adk-3.14
+        image: ${{ fromJSON(needs.select-images.outputs.derived) }}
     steps:
       - uses: actions/checkout@v7
 
