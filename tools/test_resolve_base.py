@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 import resolve_base as rb
+from select_images import select_images
 
 IMAGES = Path(__file__).resolve().parent.parent / "images"
 
@@ -186,6 +187,9 @@ class TestRepositoryConsistency:
 
     def test_every_image_in_the_matrix_has_a_directory_and_vice_versa(self):
         workflow = (IMAGES.parent / ".github/workflows/weekly-rebuild.yml").read_text()
-        in_matrix = set(re.findall(r"^\s+- (\S+)$", workflow, re.M))
+        base, derived = select_images("all")
+        in_matrix = set(base + derived)
+        assert "fromJSON(needs.select-images.outputs.base)" in workflow
+        assert "fromJSON(needs.select-images.outputs.derived)" in workflow
         on_disk = {p.name for p in self.image_dirs()}
         assert on_disk <= in_matrix, f"not built by CI: {sorted(on_disk - in_matrix)}"
