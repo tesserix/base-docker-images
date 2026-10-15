@@ -8,7 +8,7 @@
 #   * tini baked for clean SIGTERM → NODE_EXIT propagation
 #   * non-root `nextjs` user (uid 10001) — Next.js convention
 # Overridden by tools/resolve_base.py in CI; this default is what a local build gets.
-ARG BASE_IMAGE=node:22.23.2-alpine3.24
+ARG BASE_IMAGE=node:22.23.3-alpine3.24
 FROM ${BASE_IMAGE}
 
 # Vulnerable brace-expansion, ip-address, and tar releases are patched in
