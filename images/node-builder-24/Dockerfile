@@ -18,7 +18,7 @@ RUN apk update \
     && adduser  -u 10001 -S app -G app \
     && npm install -g npm@11 corepack@latest \
     && npm install -g --prefix /tmp/patched \
-        brace-expansion@5.0.9 \
+        brace-expansion@5.0.11 \
         ip-address@10.3.1 \
         tar@7.5.21 \
     && for p in brace-expansion ip-address tar; do \

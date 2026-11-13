@@ -17,7 +17,7 @@ FROM ${BASE_IMAGE}
 # (CVE-2026-69192), and tar 7.5.19 (CVE-2026-73566). No npm release ships
 # all fixed versions yet, so upgrading npm does not clear the Trivy gate.
 # npm keeps exactly one copy of each, so replacing it in place is safe.
-# Remove once npm bundles brace-expansion >= 5.0.9, ip-address >= 10.3.1,
+# Remove once npm bundles brace-expansion >= 5.0.11, ip-address >= 10.3.1,
 # and tar >= 7.5.21.
 RUN apk update \
     && apk upgrade --no-cache \
@@ -29,7 +29,7 @@ RUN apk update \
     && adduser  -u 10001 -S app -G app \
     && npm install -g npm@11 corepack@latest \
     && npm install -g --prefix /tmp/patched \
-        brace-expansion@5.0.9 \
+        brace-expansion@5.0.11 \
         ip-address@10.3.1 \
         tar@7.5.21 \
     && for p in brace-expansion ip-address tar; do \
