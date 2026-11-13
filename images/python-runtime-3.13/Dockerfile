@@ -7,7 +7,7 @@
 # glibc wheels; alpine's musl forces source compiles that balloon
 # build time and break vendor support.
 # Overridden by tools/resolve_base.py in CI; this default is what a local build gets.
-ARG BASE_IMAGE=python:3.13.17-slim
+ARG BASE_IMAGE=python:3.13.18-slim
 FROM ${BASE_IMAGE}
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -19,6 +19,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # tini            → PID 1 signal handler
 # curl            → healthcheck probes without polluting app deps
 # tzdata          → zoneinfo for schedulers / timestamp reports
+# pip >= 26.3     → its vendored msgpack (CVE-2026-114613) and urllib3
+#                   (CVE-2026-97687/97689) are fixed only from 26.3 on
 RUN apt-get update \
     && apt-get upgrade -y --no-install-recommends \
     && apt-get install --no-install-recommends -y \
@@ -27,6 +29,7 @@ RUN apt-get update \
         curl \
         tzdata \
     && apt-get clean \
+    && python -m pip install --no-cache-dir --upgrade "pip>=26.3" \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/* \
     && groupadd --system --gid 10001 app \
     && useradd  --system --uid 10001 --gid 10001 --home-dir /home/app --create-home app

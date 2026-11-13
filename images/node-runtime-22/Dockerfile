@@ -8,7 +8,7 @@
 #   * tini baked for clean SIGTERM → NODE_EXIT propagation
 #   * non-root `nextjs` user (uid 10001) — Next.js convention
 # Overridden by tools/resolve_base.py in CI; this default is what a local build gets.
-ARG BASE_IMAGE=node:22.23.4-alpine3.24
+ARG BASE_IMAGE=node:22.23.5-alpine3.24
 FROM ${BASE_IMAGE}
 
 # Vulnerable brace-expansion, ip-address, and tar releases are patched in
@@ -23,7 +23,7 @@ RUN apk update \
         tzdata \
     && npm install -g npm@11 corepack@latest \
     && npm install -g --prefix /tmp/patched \
-        brace-expansion@5.0.9 \
+        brace-expansion@5.0.11 \
         ip-address@10.3.1 \
         tar@7.5.21 \
     && for p in brace-expansion ip-address tar; do \
